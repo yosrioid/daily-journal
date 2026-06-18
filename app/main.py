@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.presentation.api.journal_router import router as journal_router
+from app.presentation.api.report_router import router as report_router
 from app.presentation.telegram.router import router as telegram_router
 from app.shared.config import Settings, get_settings
 from app.shared.logging import configure_logging
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     app.include_router(journal_router)
+    app.include_router(report_router)
     app.include_router(telegram_router)
 
     return app

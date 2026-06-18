@@ -2,10 +2,10 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database.models import JournalEntryModel, UserModel
+from app.infrastructure.database.models import JournalEntryModel, ReportModel, UserModel
 from app.infrastructure.database.session import get_session
 from app.main import create_app
 from app.shared.config import Settings
@@ -108,6 +108,32 @@ def test_telegram_start_registers_user_without_journal(db_session: Session) -> N
     assert "Daily Journal is active." in response.json()["reply_text"]
     assert db_session.scalar(select(UserModel)) is not None
     assert db_session.scalar(select(JournalEntryModel)) is None
+
+
+def test_telegram_weekly_generates_report_without_saving_command(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Progress learning Python #Backend."),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/weekly"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_weekly"
+    assert "Weekly Report" in response.json()["reply_text"]
+    entry_count = db_session.scalar(select(func.count()).select_from(JournalEntryModel))
+    assert entry_count == 1
+    report = db_session.scalar(select(ReportModel))
+    assert report is not None
+    assert report.report_type == "weekly"
 
 
 def test_telegram_webhook_ignores_update_without_message(db_session: Session) -> None:
