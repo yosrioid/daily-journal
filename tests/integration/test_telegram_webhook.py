@@ -39,6 +39,22 @@ def telegram_update(text: str, unix_timestamp: int = 1781730000) -> dict[str, ob
     }
 
 
+def telegram_update_for_user(
+    text: str,
+    telegram_user_id: int,
+    username: str,
+    unix_timestamp: int = 1781730000,
+) -> dict[str, object]:
+    update = telegram_update(text, unix_timestamp)
+    message = update["message"]
+    assert isinstance(message, dict)
+    from_user = message["from"]
+    assert isinstance(from_user, dict)
+    from_user["id"] = telegram_user_id
+    from_user["username"] = username
+    return update
+
+
 def test_telegram_webhook_rejects_invalid_secret(db_session: Session) -> None:
     client = build_client(db_session)
 
@@ -160,6 +176,76 @@ def test_telegram_monthly_generates_report_without_saving_command(
     report = db_session.scalar(select(ReportModel))
     assert report is not None
     assert report.report_type == "monthly"
+
+
+def test_telegram_search_returns_matching_user_entries(db_session: Session) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Learning Python backend today."),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Gym and dinner."),
+        headers=headers,
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/search Python"),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_search"
+    assert "Search results for: Python" in response.json()["reply_text"]
+    assert "Learning Python backend today." in response.json()["reply_text"]
+    assert "Gym and dinner." not in response.json()["reply_text"]
+
+
+def test_telegram_search_requires_keyword(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/search"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_search_invalid"
+    assert response.json()["reply_text"] == (
+        "Use /search keyword to search your journal entries."
+    )
+
+
+def test_telegram_search_does_not_return_another_users_entries(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("Private Python note.", 111, "first"),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("Public work note.", 222, "second"),
+        headers=headers,
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("/search Python", 222, "second"),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_search"
+    assert response.json()["reply_text"] == "No journal entries found for: Python"
 
 
 def test_telegram_webhook_ignores_update_without_message(db_session: Session) -> None:

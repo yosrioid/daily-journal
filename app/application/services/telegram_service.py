@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.application.dto.telegram import TelegramMessagePayload, TelegramWebhookResult
@@ -6,6 +7,7 @@ from app.application.services.journal_service import JournalService
 from app.application.services.mood_service import MoodService
 from app.application.services.report_service import ReportService
 from app.application.services.user_service import UserService
+from app.domain.entities.journal_entry import JournalEntry
 
 START_REPLY = (
     "Daily Journal is active.\n"
@@ -20,6 +22,7 @@ HELP_REPLY = (
     "/today - Show today's journal entries.\n"
     "/weekly - Generate this week's report.\n"
     "/monthly - Generate this month's report.\n"
+    "/search keyword - Search your journal entries.\n"
     "/delete_last - Delete your latest journal entry."
 )
 
@@ -94,6 +97,9 @@ class TelegramService:
                 user_id=user.id,
             )
 
+        if text == "/search" or text.startswith("/search "):
+            return self._handle_search_command(text, user.id)
+
         analysis = self.mood_service.analyze(message.text or "")
         entry = self.journal_service.create_entry(
             user_id=user.id,
@@ -118,3 +124,44 @@ class TelegramService:
             zone_info = ZoneInfo("Asia/Jakarta")
 
         return datetime.fromtimestamp(unix_timestamp, tz=zone_info).date()
+
+    def _handle_search_command(
+        self,
+        text: str,
+        user_id: UUID,
+    ) -> TelegramWebhookResult:
+        keyword = text.removeprefix("/search").strip()
+        if not keyword:
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_search_invalid",
+                reply_text="Use /search keyword to search your journal entries.",
+                user_id=user_id,
+            )
+
+        entries = self.journal_service.search_entries_for_user(user_id, keyword)
+        return TelegramWebhookResult(
+            ok=True,
+            action="command_search",
+            reply_text=self._search_reply(keyword, entries),
+            user_id=user_id,
+        )
+
+    def _search_reply(self, keyword: str, entries: list[JournalEntry]) -> str:
+        if not entries:
+            return f"No journal entries found for: {keyword}"
+
+        lines = [f"Search results for: {keyword}"]
+        for entry in entries[:5]:
+            lines.append(
+                f"- {entry.entry_date.isoformat()}: {self._snippet(entry.raw_text)}",
+            )
+        if len(entries) > 5:
+            lines.append(f"And {len(entries) - 5} more entries.")
+        return "\n".join(lines)
+
+    def _snippet(self, raw_text: str) -> str:
+        normalized = " ".join(raw_text.split())
+        if len(normalized) <= 80:
+            return normalized
+        return f"{normalized[:77]}..."
