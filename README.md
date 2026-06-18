@@ -18,7 +18,9 @@ Project foundation is being built incrementally. Current scope:
 - Journal storage, today lookup, search, delete latest, and delete by ID
 - Rule-based mood and tag extraction for new journal entries
 - Weekly report generation and retrieval
-- Tests for core database, Telegram, journal, mood, and weekly report behavior
+- Monthly report generation and retrieval
+- Tests for core database, Telegram, journal, mood, weekly report, and monthly
+  report behavior
 
 ## Development Workflow
 
@@ -88,11 +90,14 @@ Reports API:
 ```bash
 POST /reports/weekly
 GET /reports/weekly
+POST /reports/monthly
+GET /reports/monthly
 ```
 
 Reports API requests use the same `X-Internal-Api-Token` and
 `X-Telegram-User-Id` headers. Weekly reports use a Monday-to-Sunday period and
-are generated only from the requesting user's journal entries.
+monthly reports use the calendar month. Reports are generated only from the
+requesting user's journal entries.
 
 ## Test
 
