@@ -17,3 +17,23 @@ class JournalRepository(ABC):
     @abstractmethod
     def list_for_user(self, user_id: UUID) -> list[JournalEntry]:
         raise NotImplementedError
+
+    @abstractmethod
+    def list_for_user_by_date(
+        self,
+        user_id: UUID,
+        entry_date: date,
+    ) -> list[JournalEntry]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def search_for_user(self, user_id: UUID, keyword: str) -> list[JournalEntry]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_latest_for_user(self, user_id: UUID) -> JournalEntry | None:
+        raise NotImplementedError

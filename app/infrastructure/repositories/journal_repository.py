@@ -36,12 +36,78 @@ class SQLAlchemyJournalRepository(JournalRepository):
         statement = (
             select(JournalEntryModel)
             .where(JournalEntryModel.user_id == user_id)
-            .order_by(
-                JournalEntryModel.entry_date.desc(),
-                JournalEntryModel.created_at.desc(),
-            )
+            .order_by(*self._default_ordering())
         )
         return [self._to_entity(model) for model in self.session.scalars(statement)]
+
+    def list_for_user_by_date(
+        self,
+        user_id: UUID,
+        entry_date: date,
+    ) -> list[JournalEntry]:
+        statement = (
+            select(JournalEntryModel)
+            .where(
+                JournalEntryModel.user_id == user_id,
+                JournalEntryModel.entry_date == entry_date,
+            )
+            .order_by(JournalEntryModel.created_at.desc())
+        )
+        return [self._to_entity(model) for model in self.session.scalars(statement)]
+
+    def search_for_user(self, user_id: UUID, keyword: str) -> list[JournalEntry]:
+        statement = (
+            select(JournalEntryModel)
+            .where(
+                JournalEntryModel.user_id == user_id,
+                JournalEntryModel.raw_text.ilike(f"%{keyword}%"),
+            )
+            .order_by(*self._default_ordering())
+        )
+        return [self._to_entity(model) for model in self.session.scalars(statement)]
+
+    def delete_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry | None:
+        model = self._get_model_for_user(entry_id=entry_id, user_id=user_id)
+        if model is None:
+            return None
+
+        entry = self._to_entity(model)
+        self.session.delete(model)
+        self.session.flush()
+        return entry
+
+    def delete_latest_for_user(self, user_id: UUID) -> JournalEntry | None:
+        statement = (
+            select(JournalEntryModel)
+            .where(JournalEntryModel.user_id == user_id)
+            .order_by(*self._default_ordering())
+            .limit(1)
+        )
+        model = self.session.scalar(statement)
+        if model is None:
+            return None
+
+        entry = self._to_entity(model)
+        self.session.delete(model)
+        self.session.flush()
+        return entry
+
+    def _get_model_for_user(
+        self,
+        entry_id: UUID,
+        user_id: UUID,
+    ) -> JournalEntryModel | None:
+        statement = select(JournalEntryModel).where(
+            JournalEntryModel.id == entry_id,
+            JournalEntryModel.user_id == user_id,
+        )
+        return self.session.scalar(statement)
+
+    def _default_ordering(self) -> tuple[object, object]:
+        return (
+            JournalEntryModel.entry_date.desc(),
+            JournalEntryModel.created_at.desc(),
+        )
 
     def _to_entity(self, model: JournalEntryModel) -> JournalEntry:
         return JournalEntry(

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     )
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_webhook_secret: str = Field(default="", alias="TELEGRAM_WEBHOOK_SECRET")
+    internal_api_token: str = Field(default="", alias="INTERNAL_API_TOKEN")
     ai_provider: str = Field(default="none", alias="AI_PROVIDER")
     ai_api_key: str = Field(default="", alias="AI_API_KEY")
 
