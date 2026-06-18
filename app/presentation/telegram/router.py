@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.application.dto.telegram import TelegramMessagePayload, TelegramUserPayload
 from app.application.services.journal_service import JournalService
+from app.application.services.mood_service import MoodService
 from app.application.services.telegram_service import TelegramService
 from app.application.services.user_service import UserService
 from app.infrastructure.database.session import get_session
@@ -56,7 +57,7 @@ def build_telegram_service(session: Session) -> TelegramService:
     journal_repository = SQLAlchemyJournalRepository(session)
     user_service = UserService(user_repository)
     journal_service = JournalService(journal_repository, user_repository)
-    return TelegramService(user_service, journal_service)
+    return TelegramService(user_service, journal_service, MoodService())
 
 
 @router.post("/webhook")

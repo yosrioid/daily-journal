@@ -7,7 +7,15 @@ from app.domain.entities.journal_entry import JournalEntry
 
 class JournalRepository(ABC):
     @abstractmethod
-    def create(self, user_id: UUID, raw_text: str, entry_date: date) -> JournalEntry:
+    def create(
+        self,
+        user_id: UUID,
+        raw_text: str,
+        entry_date: date,
+        mood_score: int | None = None,
+        mood_label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> JournalEntry:
         raise NotImplementedError
 
     @abstractmethod

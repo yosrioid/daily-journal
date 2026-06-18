@@ -78,6 +78,9 @@ Journal API requests must include `X-Internal-Api-Token` and
 internal use. The Telegram ID resolves the current user, and all journal queries
 are scoped to that user's internal `user_id`.
 
+New journal entries receive basic rule-based mood and tag analysis. This does
+not use an external AI provider and never modifies `raw_text`.
+
 ## Test
 
 ```bash

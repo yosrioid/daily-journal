@@ -62,6 +62,24 @@ def test_create_and_get_journal_entry(db_session: Session) -> None:
     assert response.json()["entry_date"] == "2026-06-18"
 
 
+def test_create_journal_entry_stores_mood_and_tags(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/journal",
+        json={
+            "raw_text": "Today was produktif learning Python #Backend",
+            "entry_date": "2026-06-18",
+        },
+        headers=auth_headers(1002),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["mood_score"] > 5
+    assert response.json()["mood_label"] == "positive"
+    assert response.json()["tags"] == ["backend", "learning"]
+
+
 def test_journal_api_rejects_missing_internal_token(db_session: Session) -> None:
     client = build_client(db_session)
 

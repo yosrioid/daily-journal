@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.application.services.journal_service import JournalService
+from app.application.services.mood_service import MoodService
 from app.domain.entities.journal_entry import JournalEntry
 from app.domain.entities.user import User
 from app.infrastructure.database.session import get_session
@@ -91,6 +92,10 @@ def get_journal_service(
     return JournalService(journal_repository, user_repository)
 
 
+def get_mood_service() -> MoodService:
+    return MoodService()
+
+
 @router.get(
     "",
     response_model=list[JournalEntryResponse],
@@ -126,12 +131,17 @@ def create_journal_entry(
     session: Annotated[Session, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
     journal_service: Annotated[JournalService, Depends(get_journal_service)],
+    mood_service: Annotated[MoodService, Depends(get_mood_service)],
 ) -> JournalEntryResponse:
     try:
+        analysis = mood_service.analyze(payload.raw_text)
         entry = journal_service.create_entry(
             user_id=current_user.id,
             raw_text=payload.raw_text,
             entry_date=payload.entry_date or local_today(current_user.timezone),
+            mood_score=analysis.mood_score,
+            mood_label=analysis.mood_label,
+            tags=analysis.tags,
         )
     except ValueError as error:
         raise HTTPException(
