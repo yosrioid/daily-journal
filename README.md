@@ -13,10 +13,12 @@ Project foundation is being built incrementally. Current scope:
 - Layered folder structure
 - Environment configuration
 - Health check endpoint
-- Initial tests
-
-Database models, Telegram webhook handling, journal storage, and reports are
-not implemented yet.
+- Database models and Alembic migrations for users, journal entries, and reports
+- Telegram webhook handling with user auto-registration
+- Journal storage, today lookup, search, delete latest, and delete by ID
+- Rule-based mood and tag extraction for new journal entries
+- Weekly report generation and retrieval
+- Tests for core database, Telegram, journal, mood, and weekly report behavior
 
 ## Development Workflow
 
@@ -80,6 +82,17 @@ are scoped to that user's internal `user_id`.
 
 New journal entries receive basic rule-based mood and tag analysis. This does
 not use an external AI provider and never modifies `raw_text`.
+
+Reports API:
+
+```bash
+POST /reports/weekly
+GET /reports/weekly
+```
+
+Reports API requests use the same `X-Internal-Api-Token` and
+`X-Telegram-User-Id` headers. Weekly reports use a Monday-to-Sunday period and
+are generated only from the requesting user's journal entries.
 
 ## Test
 

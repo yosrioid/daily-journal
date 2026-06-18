@@ -66,6 +66,23 @@ class SQLAlchemyJournalRepository(JournalRepository):
         )
         return [self._to_entity(model) for model in self.session.scalars(statement)]
 
+    def list_for_user_between(
+        self,
+        user_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> list[JournalEntry]:
+        statement = (
+            select(JournalEntryModel)
+            .where(
+                JournalEntryModel.user_id == user_id,
+                JournalEntryModel.entry_date >= start_date,
+                JournalEntryModel.entry_date <= end_date,
+            )
+            .order_by(JournalEntryModel.entry_date, JournalEntryModel.created_at)
+        )
+        return [self._to_entity(model) for model in self.session.scalars(statement)]
+
     def search_for_user(self, user_id: UUID, keyword: str) -> list[JournalEntry]:
         statement = (
             select(JournalEntryModel)

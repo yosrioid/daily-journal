@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 from app.application.dto.telegram import TelegramMessagePayload, TelegramUserPayload
 from app.application.services.journal_service import JournalService
 from app.application.services.mood_service import MoodService
+from app.application.services.report_service import ReportService
 from app.application.services.telegram_service import TelegramService
 from app.application.services.user_service import UserService
 from app.infrastructure.database.session import get_session
 from app.infrastructure.repositories.journal_repository import (
     SQLAlchemyJournalRepository,
 )
+from app.infrastructure.repositories.report_repository import SQLAlchemyReportRepository
 from app.infrastructure.repositories.user_repository import SQLAlchemyUserRepository
 from app.shared.config import Settings
 
@@ -55,9 +57,15 @@ def get_app_settings(request: Request) -> Settings:
 def build_telegram_service(session: Session) -> TelegramService:
     user_repository = SQLAlchemyUserRepository(session)
     journal_repository = SQLAlchemyJournalRepository(session)
+    report_repository = SQLAlchemyReportRepository(session)
     user_service = UserService(user_repository)
     journal_service = JournalService(journal_repository, user_repository)
-    return TelegramService(user_service, journal_service, MoodService())
+    report_service = ReportService(
+        journal_repository,
+        report_repository,
+        user_repository,
+    )
+    return TelegramService(user_service, journal_service, MoodService(), report_service)
 
 
 @router.post("/webhook")

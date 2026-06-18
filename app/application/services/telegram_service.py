@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from app.application.dto.telegram import TelegramMessagePayload, TelegramWebhookResult
 from app.application.services.journal_service import JournalService
 from app.application.services.mood_service import MoodService
+from app.application.services.report_service import ReportService
 from app.application.services.user_service import UserService
 
 START_REPLY = (
@@ -29,10 +30,12 @@ class TelegramService:
         user_service: UserService,
         journal_service: JournalService,
         mood_service: MoodService,
+        report_service: ReportService,
     ) -> None:
         self.user_service = user_service
         self.journal_service = journal_service
         self.mood_service = mood_service
+        self.report_service = report_service
 
     def handle_message(self, message: TelegramMessagePayload) -> TelegramWebhookResult:
         user = self.user_service.resolve_telegram_user(
@@ -64,6 +67,18 @@ class TelegramService:
                 ok=True,
                 action="command_help",
                 reply_text=HELP_REPLY,
+                user_id=user.id,
+            )
+
+        if text == "/weekly":
+            report = self.report_service.generate_weekly_report(
+                user_id=user.id,
+                reference_date=self._entry_date(message.unix_timestamp, user.timezone),
+            )
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_weekly",
+                reply_text=report.summary,
                 user_id=user.id,
             )
 

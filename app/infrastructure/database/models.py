@@ -7,10 +7,12 @@ from sqlalchemy import (
     BigInteger,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Uuid
@@ -60,6 +62,10 @@ class UserModel(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    reports: Mapped[list["ReportModel"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class JournalEntryModel(Base):
@@ -96,6 +102,57 @@ class JournalEntryModel(Base):
     )
 
     user: Mapped[UserModel] = relationship(back_populates="journal_entries")
+
+
+class ReportModel(Base):
+    __tablename__ = "reports"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "report_type",
+            "period_start",
+            "period_end",
+            name="uq_reports_user_type_period",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    report_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    mood_average: Mapped[float | None] = mapped_column(Float)
+    mood_min: Mapped[int | None] = mapped_column(Integer)
+    mood_max: Mapped[int | None] = mapped_column(Integer)
+    summary: Mapped[str | None] = mapped_column(Text)
+    dominant_topics: Mapped[list[str] | None] = mapped_column(JSON)
+    positive_patterns: Mapped[list[str] | None] = mapped_column(JSON)
+    negative_patterns: Mapped[list[str] | None] = mapped_column(JSON)
+    key_events: Mapped[list[str] | None] = mapped_column(JSON)
+    lessons_learned: Mapped[list[str] | None] = mapped_column(JSON)
+    recommendations: Mapped[list[str] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        onupdate=utc_now,
+    )
+
+    user: Mapped[UserModel] = relationship(back_populates="reports")
 
 
 def json_list(value: Any) -> list[str] | None:

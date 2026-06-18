@@ -35,6 +35,15 @@ class JournalRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_for_user_between(
+        self,
+        user_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> list[JournalEntry]:
+        raise NotImplementedError
+
+    @abstractmethod
     def search_for_user(self, user_id: UUID, keyword: str) -> list[JournalEntry]:
         raise NotImplementedError
 
