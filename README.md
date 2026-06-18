@@ -59,6 +59,16 @@ pytest
 
 CI runs `ruff check .` and `pytest` on pull requests into `main`.
 
+## Database
+
+Development defaults to SQLite through `DATABASE_URL`.
+
+Run migrations:
+
+```bash
+alembic upgrade head
+```
+
 ## Development Order
 
 Follow the priority in [AI_CONTEXT.md](AI_CONTEXT.md). Do not build unrelated
