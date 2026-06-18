@@ -1,3 +1,4 @@
+from calendar import monthrange
 from collections import Counter
 from datetime import date, timedelta
 from uuid import UUID
@@ -9,10 +10,14 @@ from app.domain.interfaces.report_repository import ReportRepository
 from app.domain.interfaces.user_repository import UserRepository
 from app.shared.exceptions import NotFoundError
 
-LIMITED_DATA_MESSAGE = (
+LIMITED_WEEKLY_DATA_MESSAGE = (
     "Data is limited, so this report may not represent the full week."
 )
+LIMITED_MONTHLY_DATA_MESSAGE = (
+    "Data is limited, so this report may not represent the full month."
+)
 WEEKLY_REPORT_TYPE = "weekly"
+MONTHLY_REPORT_TYPE = "monthly"
 
 
 class ReportService:
@@ -47,6 +52,59 @@ class ReportService:
     ) -> Report:
         self._ensure_user_exists(user_id)
         period_start, period_end = self.week_period(reference_date)
+        return self._generate_report(
+            user_id=user_id,
+            report_type=WEEKLY_REPORT_TYPE,
+            period_start=period_start,
+            period_end=period_end,
+        )
+
+    def get_monthly_report(
+        self,
+        user_id: UUID,
+        reference_date: date,
+    ) -> Report | None:
+        self._ensure_user_exists(user_id)
+        period_start, period_end = self.month_period(reference_date)
+        return self.report_repository.get_for_user_period(
+            user_id=user_id,
+            report_type=MONTHLY_REPORT_TYPE,
+            period_start=period_start,
+            period_end=period_end,
+        )
+
+    def generate_monthly_report(
+        self,
+        user_id: UUID,
+        reference_date: date,
+    ) -> Report:
+        self._ensure_user_exists(user_id)
+        period_start, period_end = self.month_period(reference_date)
+        return self._generate_report(
+            user_id=user_id,
+            report_type=MONTHLY_REPORT_TYPE,
+            period_start=period_start,
+            period_end=period_end,
+        )
+
+    def week_period(self, reference_date: date) -> tuple[date, date]:
+        period_start = reference_date - timedelta(days=reference_date.weekday())
+        return period_start, period_start + timedelta(days=6)
+
+    def month_period(self, reference_date: date) -> tuple[date, date]:
+        last_day = monthrange(reference_date.year, reference_date.month)[1]
+        return (
+            date(reference_date.year, reference_date.month, 1),
+            date(reference_date.year, reference_date.month, last_day),
+        )
+
+    def _generate_report(
+        self,
+        user_id: UUID,
+        report_type: str,
+        period_start: date,
+        period_end: date,
+    ) -> Report:
         entries = self.journal_repository.list_for_user_between(
             user_id=user_id,
             start_date=period_start,
@@ -55,41 +113,56 @@ class ReportService:
         mood_scores = [
             entry.mood_score for entry in entries if entry.mood_score is not None
         ]
-
         return self.report_repository.save(
             user_id=user_id,
-            report_type=WEEKLY_REPORT_TYPE,
+            report_type=report_type,
             period_start=period_start,
             period_end=period_end,
             mood_average=self._mood_average(mood_scores),
             mood_min=min(mood_scores) if mood_scores else None,
             mood_max=max(mood_scores) if mood_scores else None,
-            summary=self._summary(entries, period_start, period_end),
+            summary=self._summary(report_type, entries, period_start, period_end),
             dominant_topics=self._dominant_topics(entries),
             positive_patterns=self._patterns(entries, minimum_score=7),
             negative_patterns=self._patterns(entries, maximum_score=4),
             key_events=self._key_events(entries),
             lessons_learned=self._lessons_learned(entries),
-            recommendations=self._recommendations(entries),
+            recommendations=self._recommendations(report_type, entries),
         )
-
-    def week_period(self, reference_date: date) -> tuple[date, date]:
-        period_start = reference_date - timedelta(days=reference_date.weekday())
-        return period_start, period_start + timedelta(days=6)
 
     def _summary(
         self,
+        report_type: str,
         entries: list[JournalEntry],
         period_start: date,
         period_end: date,
     ) -> str:
+        if report_type == MONTHLY_REPORT_TYPE:
+            return self._monthly_summary(entries, period_start, period_end)
+
         lines = [
             "Weekly Report",
             f"Period: {period_start.isoformat()} to {period_end.isoformat()}",
             f"Entries: You wrote {len(entries)} journal entries this week.",
         ]
         if len(entries) < 3:
-            lines.append(LIMITED_DATA_MESSAGE)
+            lines.append(LIMITED_WEEKLY_DATA_MESSAGE)
+        return "\n".join(lines)
+
+    def _monthly_summary(
+        self,
+        entries: list[JournalEntry],
+        period_start: date,
+        period_end: date,
+    ) -> str:
+        lines = [
+            "Monthly Report",
+            f"Period: {period_start.strftime('%B %Y')}",
+            f"Entries: You wrote {len(entries)} journal entries this month.",
+            f"Mood trend: {self._mood_trend(entries, period_start, period_end)}",
+        ]
+        if len(entries) < 5:
+            lines.append(LIMITED_MONTHLY_DATA_MESSAGE)
         return "\n".join(lines)
 
     def _mood_average(self, mood_scores: list[int]) -> float | None:
@@ -139,11 +212,46 @@ class ReportService:
             if "learn" in entry.raw_text.lower() or "belajar" in entry.raw_text.lower()
         ][:5]
 
-    def _recommendations(self, entries: list[JournalEntry]) -> list[str]:
+    def _mood_trend(
+        self,
+        entries: list[JournalEntry],
+        period_start: date,
+        period_end: date,
+    ) -> str:
+        midpoint = period_start + timedelta(
+            days=((period_end - period_start).days // 2),
+        )
+        early_scores = [
+            entry.mood_score
+            for entry in entries
+            if entry.mood_score is not None and entry.entry_date <= midpoint
+        ]
+        late_scores = [
+            entry.mood_score
+            for entry in entries
+            if entry.mood_score is not None and entry.entry_date > midpoint
+        ]
+        if not early_scores or not late_scores:
+            return "insufficient data"
+
+        difference = self._mood_average(late_scores) - self._mood_average(early_scores)
+        if difference >= 1:
+            return "improving"
+        if difference <= -1:
+            return "declining"
+        return "stable"
+
+    def _recommendations(
+        self,
+        report_type: str,
+        entries: list[JournalEntry],
+    ) -> list[str]:
         if not entries:
-            return ["Keep journaling at least once this week."]
+            return [f"Keep journaling at least once this {report_type[:-2]}."]
         if len(entries) < 3:
-            return ["Add more entries before relying on weekly patterns."]
+            return [f"Add more entries before relying on {report_type} patterns."]
+        if report_type == MONTHLY_REPORT_TYPE:
+            return ["Review repeated topics and choose one focus for next month."]
         return ["Review dominant topics and keep the next week focused."]
 
     def _snippet(self, raw_text: str) -> str:

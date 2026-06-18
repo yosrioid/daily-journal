@@ -134,6 +134,55 @@ def get_weekly_report(
     return to_report_response(report)
 
 
+@router.post(
+    "/monthly",
+    response_model=ReportResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_internal_api_token)],
+)
+def generate_monthly_report(
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    report_service: Annotated[ReportService, Depends(get_report_service)],
+    reference_date: Annotated[date | None, Query()] = None,
+) -> ReportResponse:
+    try:
+        report = report_service.generate_monthly_report(
+            user_id=current_user.id,
+            reference_date=reference_date or local_today(current_user.timezone),
+        )
+    except NotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    session.commit()
+    return to_report_response(report)
+
+
+@router.get(
+    "/monthly",
+    response_model=ReportResponse,
+    dependencies=[Depends(verify_internal_api_token)],
+)
+def get_monthly_report(
+    current_user: Annotated[User, Depends(get_current_user)],
+    report_service: Annotated[ReportService, Depends(get_report_service)],
+    reference_date: Annotated[date | None, Query()] = None,
+) -> ReportResponse:
+    report = report_service.get_monthly_report(
+        user_id=current_user.id,
+        reference_date=reference_date or local_today(current_user.timezone),
+    )
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monthly report not found",
+        )
+    return to_report_response(report)
+
+
 def local_today(timezone: str) -> date:
     try:
         zone_info = ZoneInfo(timezone)

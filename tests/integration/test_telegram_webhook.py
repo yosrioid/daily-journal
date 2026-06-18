@@ -136,6 +136,32 @@ def test_telegram_weekly_generates_report_without_saving_command(
     assert report.report_type == "weekly"
 
 
+def test_telegram_monthly_generates_report_without_saving_command(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Progress learning Python #Backend."),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/monthly"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_monthly"
+    assert "Monthly Report" in response.json()["reply_text"]
+    entry_count = db_session.scalar(select(func.count()).select_from(JournalEntryModel))
+    assert entry_count == 1
+    report = db_session.scalar(select(ReportModel))
+    assert report is not None
+    assert report.report_type == "monthly"
+
+
 def test_telegram_webhook_ignores_update_without_message(db_session: Session) -> None:
     client = build_client(db_session)
 

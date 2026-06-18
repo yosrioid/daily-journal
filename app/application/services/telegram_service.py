@@ -82,6 +82,18 @@ class TelegramService:
                 user_id=user.id,
             )
 
+        if text == "/monthly":
+            report = self.report_service.generate_monthly_report(
+                user_id=user.id,
+                reference_date=self._entry_date(message.unix_timestamp, user.timezone),
+            )
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_monthly",
+                reply_text=report.summary,
+                user_id=user.id,
+            )
+
         analysis = self.mood_service.analyze(message.text or "")
         entry = self.journal_service.create_entry(
             user_id=user.id,
