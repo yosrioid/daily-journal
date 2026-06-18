@@ -61,6 +61,23 @@ The webhook currently validates Telegram updates, resolves or creates the
 Telegram user, stores normal text messages as journal entries, and returns an
 acknowledgement payload. Outbound Telegram replies are not implemented yet.
 
+Journal API:
+
+```bash
+GET /journal
+GET /journal?keyword=python
+POST /journal
+GET /journal/today
+GET /journal/{id}
+DELETE /journal/latest
+DELETE /journal/{id}
+```
+
+Journal API requests must include `X-Internal-Api-Token` and
+`X-Telegram-User-Id`. The internal token gates these endpoints for trusted
+internal use. The Telegram ID resolves the current user, and all journal queries
+are scoped to that user's internal `user_id`.
+
 ## Test
 
 ```bash

@@ -43,3 +43,42 @@ class JournalService:
 
     def list_entries_for_user(self, user_id: UUID) -> list[JournalEntry]:
         return self.journal_repository.list_for_user(user_id)
+
+    def list_entries_for_user_by_date(
+        self,
+        user_id: UUID,
+        entry_date: date,
+    ) -> list[JournalEntry]:
+        self._ensure_user_exists(user_id)
+        return self.journal_repository.list_for_user_by_date(user_id, entry_date)
+
+    def search_entries_for_user(
+        self,
+        user_id: UUID,
+        keyword: str,
+    ) -> list[JournalEntry]:
+        if not keyword.strip():
+            raise ValueError("Search keyword must not be empty")
+
+        self._ensure_user_exists(user_id)
+        return self.journal_repository.search_for_user(user_id, keyword.strip())
+
+    def delete_entry_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry:
+        entry = self.journal_repository.delete_for_user(
+            entry_id=entry_id,
+            user_id=user_id,
+        )
+        if entry is None:
+            raise OwnershipError("Journal entry does not belong to this user")
+        return entry
+
+    def delete_latest_entry_for_user(self, user_id: UUID) -> JournalEntry:
+        self._ensure_user_exists(user_id)
+        entry = self.journal_repository.delete_latest_for_user(user_id)
+        if entry is None:
+            raise NotFoundError("Journal entry not found")
+        return entry
+
+    def _ensure_user_exists(self, user_id: UUID) -> None:
+        if self.user_repository.get_by_id(user_id) is None:
+            raise NotFoundError("User not found")
