@@ -72,6 +72,31 @@ Every database query related to user data must filter by `user_id`.
 
 Users must never access another user's data.
 
+### 4. Branch and Pull Request Workflow
+
+Do not push feature work directly to `main`.
+
+Use one branch per phase or tightly scoped fix:
+
+- `phase/NN-short-description`
+- `feat/short-description`
+- `fix/short-description`
+
+Every branch must be opened as a pull request into `main`.
+
+Do not merge while CI is failing or while actionable review comments are
+unresolved.
+
+Review comments must be resolved explicitly as one of:
+
+- `Fixed`
+- `Explained`
+- `Deferred`
+- `Rejected`
+
+See [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for the full
+branch, PR, review-comment, and CI rules.
+
 ---
 
 ## Recommended Tech Stack
