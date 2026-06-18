@@ -8,6 +8,7 @@ from app.application.services.mood_service import MoodService
 from app.application.services.report_service import ReportService
 from app.application.services.user_service import UserService
 from app.domain.entities.journal_entry import JournalEntry
+from app.shared.exceptions import NotFoundError
 
 START_REPLY = (
     "Daily Journal is active.\n"
@@ -70,6 +71,40 @@ class TelegramService:
                 ok=True,
                 action="command_help",
                 reply_text=HELP_REPLY,
+                user_id=user.id,
+            )
+
+        if text == "/today":
+            entry_date = self._entry_date(message.unix_timestamp, user.timezone)
+            entries = self.journal_service.list_entries_for_user_by_date(
+                user_id=user.id,
+                entry_date=entry_date,
+            )
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_today",
+                reply_text=self._entries_reply("Today's journal entries", entries),
+                user_id=user.id,
+            )
+
+        if text == "/delete_last":
+            try:
+                entry = self.journal_service.delete_latest_entry_for_user(user.id)
+            except NotFoundError:
+                return TelegramWebhookResult(
+                    ok=True,
+                    action="command_delete_last_empty",
+                    reply_text="No journal entries to delete.",
+                    user_id=user.id,
+                )
+
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_delete_last",
+                reply_text=(
+                    "Deleted latest journal entry: "
+                    f"{entry.entry_date.isoformat()} - {self._snippet(entry.raw_text)}"
+                ),
                 user_id=user.id,
             )
 
@@ -156,6 +191,17 @@ class TelegramService:
             lines.append(
                 f"- {entry.entry_date.isoformat()}: {self._snippet(entry.raw_text)}",
             )
+        if len(entries) > 5:
+            lines.append(f"And {len(entries) - 5} more entries.")
+        return "\n".join(lines)
+
+    def _entries_reply(self, title: str, entries: list[JournalEntry]) -> str:
+        if not entries:
+            return "No journal entries found for today."
+
+        lines = [title]
+        for entry in entries[:5]:
+            lines.append(f"- {self._snippet(entry.raw_text)}")
         if len(entries) > 5:
             lines.append(f"And {len(entries) - 5} more entries.")
         return "\n".join(lines)

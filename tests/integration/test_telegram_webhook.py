@@ -126,6 +126,101 @@ def test_telegram_start_registers_user_without_journal(db_session: Session) -> N
     assert db_session.scalar(select(JournalEntryModel)) is None
 
 
+def test_telegram_today_returns_current_user_entries(db_session: Session) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Today entry about Python."),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("Another user entry.", 999, "other"),
+        headers=headers,
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/today"),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_today"
+    assert "Today's journal entries" in response.json()["reply_text"]
+    assert "Today entry about Python." in response.json()["reply_text"]
+    assert "Another user entry." not in response.json()["reply_text"]
+
+
+def test_telegram_delete_last_deletes_current_user_latest_entry(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("First entry."),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Second entry."),
+        headers=headers,
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/delete_last"),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_delete_last"
+    assert "Deleted latest journal entry:" in response.json()["reply_text"]
+    entries = db_session.scalars(select(JournalEntryModel)).all()
+    assert len(entries) == 1
+    assert entries[0].raw_text == "First entry."
+
+
+def test_telegram_delete_last_handles_empty_journal(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/delete_last"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_delete_last_empty"
+    assert response.json()["reply_text"] == "No journal entries to delete."
+
+
+def test_telegram_delete_last_does_not_delete_another_users_entry(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("Private entry.", 111, "first"),
+        headers=headers,
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("/delete_last", 222, "second"),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_delete_last_empty"
+    entry = db_session.scalar(select(JournalEntryModel))
+    assert entry is not None
+    assert entry.raw_text == "Private entry."
+
+
 def test_telegram_weekly_generates_report_without_saving_command(
     db_session: Session,
 ) -> None:

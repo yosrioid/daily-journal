@@ -16,6 +16,7 @@ Project foundation is being built incrementally. Current scope:
 - Database models and Alembic migrations for users, journal entries, and reports
 - Telegram webhook handling with user auto-registration
 - Journal storage, today lookup, search, delete latest, and delete by ID
+- Telegram today and delete latest commands
 - Telegram search command
 - Rule-based mood and tag extraction for new journal entries
 - Weekly report generation and retrieval
