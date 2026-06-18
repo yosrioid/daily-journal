@@ -18,6 +18,14 @@ Project foundation is being built incrementally. Current scope:
 Database models, Telegram webhook handling, journal storage, and reports are
 not implemented yet.
 
+## Development Workflow
+
+Do not push feature work directly to `main`. Work must be done in a phase or
+feature branch and merged through a pull request.
+
+Read [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) before
+starting a new phase.
+
 ## Requirements
 
 - Python 3.13+
@@ -48,6 +56,8 @@ curl http://127.0.0.1:8000/health
 ```bash
 pytest
 ```
+
+CI runs `ruff check .` and `pytest` on pull requests into `main`.
 
 ## Development Order
 
