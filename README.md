@@ -51,6 +51,16 @@ Health check:
 curl http://127.0.0.1:8000/health
 ```
 
+Telegram webhook:
+
+```bash
+POST /telegram/webhook
+```
+
+The webhook currently validates Telegram updates, resolves or creates the
+Telegram user, stores normal text messages as journal entries, and returns an
+acknowledgement payload. Outbound Telegram replies are not implemented yet.
+
 ## Test
 
 ```bash

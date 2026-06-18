@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.presentation.telegram.router import router as telegram_router
 from app.shared.config import Settings, get_settings
 from app.shared.logging import configure_logging
 
@@ -14,6 +15,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url="/docs" if resolved_settings.is_development else None,
         redoc_url="/redoc" if resolved_settings.is_development else None,
     )
+    app.state.settings = resolved_settings
 
     @app.get("/health")
     def health_check() -> dict[str, str]:
@@ -21,6 +23,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": "ok",
             "environment": resolved_settings.app_env,
         }
+
+    app.include_router(telegram_router)
 
     return app
 
