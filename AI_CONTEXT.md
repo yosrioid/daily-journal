@@ -1,0 +1,892 @@
+# Daily Journal - AI Project Context
+
+## Project Name
+
+Daily Journal
+
+## Project Type
+
+Python backend application with Telegram Bot input.
+
+## Project Goal
+
+Daily Journal is a personal journaling system where users submit daily journal
+entries through Telegram. The system stores each entry based on the user's
+Telegram account and can generate weekly and monthly reports about mood,
+activities, stories, patterns, progress, and personal reflections.
+
+This project must be simple, maintainable, extensible, and easy for future AI
+assistants to continue.
+
+---
+
+## Core Rules
+
+### 1. Read This File First
+
+Every AI assistant working on this project must read this file before modifying
+the codebase.
+
+Do not make architectural changes before understanding:
+
+- Current folder structure
+- Existing database schema
+- Existing service patterns
+- Existing tests
+- Current README.md
+
+### 2. Keep the Project Simple
+
+Avoid over-engineering.
+
+Do not introduce:
+
+- Microservices
+- Message brokers
+- Complex event systems
+- Unnecessary design patterns
+- Premature optimization
+- Multi-tenant enterprise architecture
+
+Unless explicitly requested.
+
+### 3. Telegram User-Based Data Ownership
+
+The app supports multiple users based on Telegram accounts.
+
+Each user is identified by Telegram data.
+
+Primary identity:
+
+```text
+telegram_user_id
+```
+
+Do not use Telegram username as the unique identifier because usernames can
+change.
+
+Every journal entry, mood record, learning log, reflection, and report must
+belong to exactly one user.
+
+Every database query related to user data must filter by `user_id`.
+
+Users must never access another user's data.
+
+---
+
+## Recommended Tech Stack
+
+### Backend
+
+- Python 3.13+
+- FastAPI
+- SQLAlchemy
+- Alembic
+- Pydantic
+- Uvicorn
+- Pytest
+
+### Telegram
+
+Preferred:
+
+- Direct Telegram Bot API webhook
+
+Alternative:
+
+- python-telegram-bot
+
+### Database
+
+Development:
+
+- SQLite
+
+Production:
+
+- PostgreSQL
+
+### Optional AI Integration
+
+Future integration:
+
+- Groq API
+- OpenAI API
+- Local LLM
+
+AI processing must be optional and isolated from core journal storage.
+
+---
+
+## Architecture
+
+Use clean and simple layered architecture.
+
+```text
+app/
+├── domain/
+│   ├── entities/
+│   ├── value_objects/
+│   └── interfaces/
+│
+├── application/
+│   ├── services/
+│   ├── use_cases/
+│   └── dto/
+│
+├── infrastructure/
+│   ├── database/
+│   ├── repositories/
+│   ├── telegram/
+│   └── ai/
+│
+├── presentation/
+│   ├── api/
+│   └── telegram/
+│
+├── shared/
+│   ├── config.py
+│   ├── logging.py
+│   └── exceptions.py
+│
+└── main.py
+```
+
+Dependency direction:
+
+```text
+presentation -> application -> domain
+infrastructure -> implements domain/application interfaces
+```
+
+Domain must not depend on FastAPI, Telegram, SQLAlchemy, or external APIs.
+
+---
+
+## Core Domain Concepts
+
+### User
+
+Represents a Telegram user.
+
+Fields:
+
+- id
+- telegram_user_id
+- telegram_username
+- first_name
+- last_name
+- timezone
+- created_at
+- updated_at
+
+Rules:
+
+- `telegram_user_id` must be unique.
+- Username is optional.
+- Timezone defaults to `Asia/Jakarta`.
+- User is created automatically when sending the first journal message.
+
+### Journal Entry
+
+Represents a user's journal input.
+
+Fields:
+
+- id
+- user_id
+- entry_date
+- raw_text
+- processed_text
+- summary
+- mood_score
+- mood_label
+- tags
+- created_at
+- updated_at
+
+Rules:
+
+- `raw_text` is the original Telegram message.
+- Never overwrite `raw_text`.
+- AI output must be stored separately.
+- A user may have multiple entries per day.
+- Do not force one journal per day unless requested.
+
+Mood score:
+
+- 1 = very bad
+- 5 = neutral
+- 10 = very good
+
+### Reflection
+
+Optional structured reflection extracted from journal entries.
+
+Fields:
+
+- id
+- journal_entry_id
+- wins
+- challenges
+- lessons_learned
+- gratitude
+- next_action
+- created_at
+- updated_at
+
+### Learning Log
+
+Optional learning-related record.
+
+Fields:
+
+- id
+- user_id
+- journal_entry_id
+- topic
+- duration_minutes
+- notes
+- created_at
+- updated_at
+
+### Report
+
+Generated report from journal entries.
+
+Types:
+
+- weekly
+- monthly
+
+Fields:
+
+- id
+- user_id
+- report_type
+- period_start
+- period_end
+- mood_average
+- mood_min
+- mood_max
+- summary
+- dominant_topics
+- positive_patterns
+- negative_patterns
+- key_events
+- lessons_learned
+- recommendations
+- created_at
+- updated_at
+
+Rules:
+
+- Reports are generated from existing journal entries.
+- Reports must never invent events.
+- If data is insufficient, report must say that the data is limited.
+- Reports can be regenerated.
+
+---
+
+## Database Tables
+
+### users
+
+- id UUID primary key
+- telegram_user_id BIGINT unique not null
+- telegram_username VARCHAR nullable
+- first_name VARCHAR nullable
+- last_name VARCHAR nullable
+- timezone VARCHAR default "Asia/Jakarta"
+- created_at TIMESTAMP
+- updated_at TIMESTAMP
+
+### journal_entries
+
+- id UUID primary key
+- user_id UUID foreign key users.id
+- entry_date DATE not null
+- raw_text TEXT not null
+- processed_text TEXT nullable
+- summary TEXT nullable
+- mood_score INTEGER nullable
+- mood_label VARCHAR nullable
+- tags JSON nullable
+- created_at TIMESTAMP
+- updated_at TIMESTAMP
+
+### reflections
+
+- id UUID primary key
+- journal_entry_id UUID foreign key journal_entries.id
+- wins TEXT nullable
+- challenges TEXT nullable
+- lessons_learned TEXT nullable
+- gratitude TEXT nullable
+- next_action TEXT nullable
+- created_at TIMESTAMP
+- updated_at TIMESTAMP
+
+### learning_logs
+
+- id UUID primary key
+- user_id UUID foreign key users.id
+- journal_entry_id UUID foreign key journal_entries.id nullable
+- topic VARCHAR not null
+- duration_minutes INTEGER nullable
+- notes TEXT nullable
+- created_at TIMESTAMP
+- updated_at TIMESTAMP
+
+### reports
+
+- id UUID primary key
+- user_id UUID foreign key users.id
+- report_type VARCHAR not null
+- period_start DATE not null
+- period_end DATE not null
+- mood_average FLOAT nullable
+- mood_min INTEGER nullable
+- mood_max INTEGER nullable
+- summary TEXT nullable
+- dominant_topics JSON nullable
+- positive_patterns JSON nullable
+- negative_patterns JSON nullable
+- key_events JSON nullable
+- lessons_learned JSON nullable
+- recommendations JSON nullable
+- created_at TIMESTAMP
+- updated_at TIMESTAMP
+
+---
+
+## Telegram Bot Behavior
+
+### Incoming Message Flow
+
+```text
+Telegram Message
+-> Validate payload
+-> Resolve Telegram user
+-> Create user if not exists
+-> Store raw journal entry
+-> Optional AI processing
+-> Reply confirmation
+```
+
+Default reply:
+
+```text
+Journal saved.
+```
+
+Optional richer reply:
+
+```text
+Journal saved.
+Mood: Neutral
+Tags: work, learning
+```
+
+### Telegram Commands
+
+#### /start
+
+Purpose:
+
+- Register user if not exists.
+- Explain basic usage.
+
+Response:
+
+```text
+Daily Journal is active.
+Send any message to save it as your journal entry.
+Use /weekly to generate this week's report.
+Use /monthly to generate this month's report.
+```
+
+#### /help
+
+Show available commands.
+
+#### /today
+
+Show today's journal entries.
+
+#### /weekly
+
+Generate or show current weekly report.
+
+#### /monthly
+
+Generate or show current monthly report.
+
+#### /mood
+
+Show mood summary.
+
+#### /search keyword
+
+Search journal entries by keyword.
+
+#### /delete_last
+
+Delete the latest journal entry.
+
+Must only delete the requesting user's own data.
+
+---
+
+## Weekly Report Feature
+
+Weekly report period:
+
+```text
+Monday to Sunday
+```
+
+Report should include:
+
+- Total journal entries
+- Mood average
+- Best mood day
+- Worst mood day
+- Main stories/events
+- Dominant topics
+- Positive patterns
+- Negative patterns
+- Learning progress
+- Wins
+- Challenges
+- Gratitude highlights
+- Suggested focus for next week
+
+Example weekly report format:
+
+```text
+Weekly Report
+Period: 2026-06-15 to 2026-06-21
+Entries:
+You wrote 12 journal entries this week.
+Mood:
+Average mood: 6.8/10
+Best day: Friday
+Most difficult day: Tuesday
+Main Stories:
+- You focused heavily on work and personal projects.
+- You had some emotional fatigue but still maintained progress.
+Positive Patterns:
+- You kept learning consistently.
+- You reflected more clearly after difficult days.
+Challenges:
+- Sleep and energy management were inconsistent.
+- Work-related stress appeared several times.
+Learning:
+- Python and backend topics appeared frequently.
+Suggested Focus:
+Next week, keep journaling daily and reduce late-night overthinking.
+```
+
+---
+
+## Monthly Report Feature
+
+Monthly report should include:
+
+- Total journal entries
+- Mood average
+- Mood trend
+- Most frequent topics
+- Major stories
+- Emotional patterns
+- Work/life balance notes
+- Learning progress
+- Personal growth
+- Repeated problems
+- Repeated wins
+- Suggested improvement for next month
+
+Example monthly report format:
+
+```text
+Monthly Report
+Period: June 2026
+Entries:
+You wrote 48 journal entries this month.
+Mood:
+Average mood: 6.5/10
+Trend: Slightly improving
+Main Themes:
+- Work adjustment
+- Personal finance
+- Learning Python
+- Emotional recovery
+- Fitness consistency
+Key Stories:
+- You became more consistent with journaling.
+- You reflected often about work, growth, and personal stability.
+Positive Patterns:
+- Better self-awareness
+- More structured planning
+- Consistent learning interest
+Negative Patterns:
+- Overthinking at night
+- Irregular sleep
+- Emotional fatigue after work
+Growth Notes:
+You are becoming more aware of what drains your energy and what gives you stability.
+Suggested Focus for Next Month:
+Focus on sleep consistency, simple daily routines, and smaller but more consistent learning sessions.
+```
+
+---
+
+## AI Processing Rules
+
+AI may be used for:
+
+- Summarizing entries
+- Detecting mood
+- Extracting tags
+- Extracting topics
+- Creating weekly reports
+- Creating monthly reports
+- Giving reflective insights
+
+AI must not:
+
+- Modify raw journal text
+- Invent facts
+- Diagnose mental health conditions
+- Give medical claims
+- Expose another user's data
+- Store secrets in logs
+
+When generating reports, AI must use only the user's own journal entries from the
+selected period.
+
+If entries are too few, say:
+
+```text
+Data is limited, so this report may not represent the full week/month.
+```
+
+---
+
+## API Endpoints
+
+### Telegram
+
+- POST /telegram/webhook
+
+Handles incoming Telegram updates.
+
+### Journal
+
+- GET /journal/today
+- GET /journal
+- POST /journal
+- GET /journal/{id}
+- PUT /journal/{id}
+- DELETE /journal/{id}
+
+All endpoints must require user ownership.
+
+### Reports
+
+- POST /reports/weekly
+- GET /reports/weekly
+- POST /reports/monthly
+- GET /reports/monthly
+
+---
+
+## Service Layer
+
+Required services:
+
+- UserService
+- JournalService
+- TelegramService
+- ReportService
+- MoodService
+- AIProcessingService
+
+### UserService
+
+Responsibilities:
+
+- Find user by Telegram ID
+- Create user from Telegram payload
+- Update username/name if changed
+
+### JournalService
+
+Responsibilities:
+
+- Create journal entry
+- Get user entries
+- Search entries
+- Delete latest entry
+- Ensure ownership
+
+### ReportService
+
+Responsibilities:
+
+- Collect entries by period
+- Calculate mood statistics
+- Generate weekly report
+- Generate monthly report
+- Store report result
+
+### AIProcessingService
+
+Responsibilities:
+
+- Summarize text
+- Extract mood
+- Extract tags
+- Generate report narrative
+
+AI service must be replaceable.
+
+---
+
+## Code Rules
+
+### Type Hints
+
+All public functions must use type hints.
+
+Good:
+
+```python
+def create_entry(user_id: UUID, raw_text: str) -> JournalEntry:
+    ...
+```
+
+Bad:
+
+```python
+def create_entry(user_id, raw_text):
+    ...
+```
+
+### Function Size
+
+Preferred:
+
+- 10-30 lines
+
+Maximum:
+
+- 50 lines
+
+If longer, refactor.
+
+### Logging
+
+Do not use `print()`.
+
+Use structured logging.
+
+```python
+logger.info("Journal entry created", extra={"user_id": str(user_id)})
+```
+
+Never log:
+
+- Raw journal content
+- Telegram token
+- API keys
+- Personal secrets
+
+### Error Handling
+
+Bad:
+
+```python
+except:
+    pass
+```
+
+Good:
+
+```python
+except ValueError as error:
+    logger.warning("Invalid journal input", extra={"error": str(error)})
+    raise
+```
+
+---
+
+## Security Rules
+
+- Store Telegram bot token in environment variable.
+- Never commit `.env`.
+- Never expose journal data publicly.
+- Every user-owned query must filter by `user_id`.
+- Validate all Telegram webhook payloads.
+- Do not trust username.
+- Use `telegram_user_id` for identity.
+- Do not log raw journal content.
+- Do not expose stack traces to Telegram users.
+
+---
+
+## Testing Rules
+
+Use Pytest.
+
+Required test folders:
+
+```text
+tests/
+├── unit/
+├── integration/
+└── e2e/
+```
+
+Priority:
+
+1. User resolver tests
+2. Journal creation tests
+3. Ownership isolation tests
+4. Weekly report tests
+5. Monthly report tests
+6. Telegram webhook tests
+
+Minimum required tests:
+
+- Create new user from Telegram message
+- Existing user sends journal
+- Journal entry belongs to correct user
+- User cannot access another user's entry
+- Generate weekly report
+- Generate monthly report
+- Delete latest entry
+- Search entries
+
+---
+
+## Environment Variables
+
+Required:
+
+- APP_ENV
+- DATABASE_URL
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_WEBHOOK_SECRET
+- AI_PROVIDER
+- AI_API_KEY
+
+AI variables are optional if AI processing is disabled.
+
+---
+
+## MVP Scope
+
+Version 1.0 must include:
+
+- Telegram webhook
+- User auto-registration
+- Save journal entry from Telegram message
+- Store entries by Telegram user
+- View today's entries
+- Delete latest entry
+- Weekly report
+- Monthly report
+- Basic mood tracking
+- Basic tags
+- Tests for core behavior
+
+---
+
+## Out of Scope for MVP
+
+Do not implement yet:
+
+- Web dashboard
+- Mobile app
+- Public sharing
+- Social features
+- Payment
+- Team accounts
+- Complex analytics
+- Voice message transcription
+- Image journal
+- Calendar integration
+
+---
+
+## Future Features
+
+Possible future improvements:
+
+- Web dashboard
+- Telegram inline buttons
+- Voice note transcription
+- Image-based journal
+- Habit tracking
+- Goal tracking
+- Expense reflection
+- Learning analytics
+- AI chat with personal memory
+- Export to Markdown
+- Export to PDF
+- Backup to Google Drive
+- Reminder notifications
+
+---
+
+## Definition of Done
+
+A feature is complete only when:
+
+- Code is implemented
+- Tests are added
+- Type hints are complete
+- No ownership/security issue exists
+- README is updated if needed
+- Migration is added if database changes
+- Existing tests still pass
+
+---
+
+## Development Priority
+
+Build in this order:
+
+1. Project setup
+2. Database connection
+3. User model
+4. Journal entry model
+5. Telegram webhook
+6. Save raw journal entry
+7. Basic Telegram replies
+8. Today command
+9. Delete latest command
+10. Mood extraction
+11. Weekly report
+12. Monthly report
+13. Search command
+14. Tests
+15. README
+
+---
+
+## Important Rule for Future AI Assistants
+
+Do not build everything at once.
+
+Always work incrementally.
+
+Before making changes:
+
+1. Explain what will be changed.
+2. Modify the smallest necessary part.
+3. Keep existing behavior working.
+4. Add or update tests.
+5. Summarize what changed.

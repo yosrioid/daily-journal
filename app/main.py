@@ -1,0 +1,28 @@
+from fastapi import FastAPI
+
+from app.shared.config import Settings, get_settings
+from app.shared.logging import configure_logging
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    resolved_settings = settings or get_settings()
+    configure_logging(resolved_settings.app_env)
+
+    app = FastAPI(
+        title="Daily Journal",
+        version="0.1.0",
+        docs_url="/docs" if resolved_settings.is_development else None,
+        redoc_url="/redoc" if resolved_settings.is_development else None,
+    )
+
+    @app.get("/health")
+    def health_check() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "environment": resolved_settings.app_env,
+        }
+
+    return app
+
+
+app = create_app()
