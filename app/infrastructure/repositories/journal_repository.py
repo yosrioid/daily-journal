@@ -13,11 +13,22 @@ class SQLAlchemyJournalRepository(JournalRepository):
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def create(self, user_id: UUID, raw_text: str, entry_date: date) -> JournalEntry:
+    def create(
+        self,
+        user_id: UUID,
+        raw_text: str,
+        entry_date: date,
+        mood_score: int | None = None,
+        mood_label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> JournalEntry:
         model = JournalEntryModel(
             user_id=user_id,
             raw_text=raw_text,
             entry_date=entry_date,
+            mood_score=mood_score,
+            mood_label=mood_label,
+            tags=tags,
         )
         self.session.add(model)
         self.session.flush()

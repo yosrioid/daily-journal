@@ -21,6 +21,9 @@ class JournalService:
         user_id: UUID,
         raw_text: str,
         entry_date: date | None = None,
+        mood_score: int | None = None,
+        mood_label: str | None = None,
+        tags: list[str] | None = None,
     ) -> JournalEntry:
         if not raw_text.strip():
             raise ValueError("Journal entry text must not be empty")
@@ -33,6 +36,9 @@ class JournalService:
             user_id=user.id,
             raw_text=raw_text,
             entry_date=entry_date or date.today(),
+            mood_score=mood_score,
+            mood_label=mood_label,
+            tags=tags,
         )
 
     def get_entry_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry:

@@ -76,6 +76,24 @@ def test_telegram_webhook_saves_text_message(db_session: Session) -> None:
     assert entry.entry_date.isoformat() == "2026-06-18"
 
 
+def test_telegram_webhook_stores_mood_and_tags(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("I made progress learning Python #Backend."),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    entry = db_session.scalar(select(JournalEntryModel))
+    assert entry is not None
+    assert entry.mood_score is not None
+    assert entry.mood_score > 5
+    assert entry.mood_label == "positive"
+    assert entry.tags == ["backend", "learning"]
+
+
 def test_telegram_start_registers_user_without_journal(db_session: Session) -> None:
     client = build_client(db_session)
 
