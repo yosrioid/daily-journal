@@ -7,7 +7,7 @@ Before modifying this project, read [AI_CONTEXT.md](AI_CONTEXT.md).
 
 ## Current Status
 
-Project foundation is being built incrementally. Current scope:
+Version 1 is ready for personal MVP use. Current scope:
 
 - FastAPI application skeleton
 - Layered folder structure
@@ -15,6 +15,7 @@ Project foundation is being built incrementally. Current scope:
 - Health check endpoint
 - Database models and Alembic migrations for users, journal entries, and reports
 - Telegram webhook handling with user auto-registration
+- Outbound Telegram replies for webhook confirmations and commands
 - Journal storage, today lookup, search, delete latest, and delete by ID
 - Telegram today and delete latest commands
 - Telegram search command
@@ -24,6 +25,8 @@ Project foundation is being built incrementally. Current scope:
 - Monthly report generation and retrieval
 - Tests for core database, Telegram, journal, mood, weekly report, and monthly
   report behavior
+
+Release notes: [docs/releases/v1.md](docs/releases/v1.md).
 
 ## Development Workflow
 
