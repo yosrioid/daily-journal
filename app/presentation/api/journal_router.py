@@ -4,6 +4,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -176,6 +177,22 @@ def list_today_journal_entries(
         entry_date=local_today(current_user.timezone),
     )
     return [to_journal_entry_response(entry) for entry in entries]
+
+
+@router.get(
+    "/export/markdown",
+    response_class=PlainTextResponse,
+    dependencies=[Depends(verify_internal_api_token)],
+)
+def export_journal_entries_markdown(
+    current_user: Annotated[User, Depends(get_current_user)],
+    journal_service: Annotated[JournalService, Depends(get_journal_service)],
+) -> PlainTextResponse:
+    markdown = journal_service.export_entries_for_user_as_markdown(current_user.id)
+    return PlainTextResponse(
+        content=markdown,
+        media_type="text/markdown; charset=utf-8",
+    )
 
 
 @router.delete(

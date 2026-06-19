@@ -79,6 +79,7 @@ Journal API:
 ```bash
 GET /journal
 GET /journal?keyword=python
+GET /journal/export/markdown
 POST /journal
 GET /journal/today
 GET /journal/{id}

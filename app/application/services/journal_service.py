@@ -50,6 +50,22 @@ class JournalService:
     def list_entries_for_user(self, user_id: UUID) -> list[JournalEntry]:
         return self.journal_repository.list_for_user(user_id)
 
+    def export_entries_for_user_as_markdown(self, user_id: UUID) -> str:
+        self._ensure_user_exists(user_id)
+        entries = self.journal_repository.list_for_user(user_id)
+        if not entries:
+            return "# Daily Journal Export\n\nNo journal entries found.\n"
+
+        lines = ["# Daily Journal Export", ""]
+        current_date: date | None = None
+        for entry in entries:
+            if entry.entry_date != current_date:
+                current_date = entry.entry_date
+                lines.extend([f"## {entry.entry_date.isoformat()}", ""])
+            lines.extend(self._entry_markdown_lines(entry))
+
+        return "\n".join(lines).rstrip() + "\n"
+
     def list_entries_for_user_by_date(
         self,
         user_id: UUID,
@@ -117,3 +133,16 @@ class JournalService:
     def _ensure_user_exists(self, user_id: UUID) -> None:
         if self.user_repository.get_by_id(user_id) is None:
             raise NotFoundError("User not found")
+
+    def _entry_markdown_lines(self, entry: JournalEntry) -> list[str]:
+        lines = [f"### Entry {entry.id}", ""]
+        if entry.mood_score is not None:
+            mood = f"Mood: {entry.mood_score}/10"
+            if entry.mood_label:
+                mood = f"{mood} ({entry.mood_label})"
+            lines.extend([mood, ""])
+        if entry.tags:
+            lines.extend([f"Tags: {', '.join(entry.tags)}", ""])
+
+        lines.extend([entry.raw_text.strip(), ""])
+        return lines

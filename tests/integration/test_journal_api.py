@@ -230,6 +230,56 @@ def test_search_journal_entries_rejects_blank_keyword(db_session: Session) -> No
     assert response.status_code == 400
 
 
+def test_export_markdown_returns_only_current_user_entries(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    create_entry(
+        client,
+        telegram_user_id=4101,
+        raw_text="First private entry.",
+        entry_date=date(2026, 6, 18),
+    )
+    create_entry(
+        client,
+        telegram_user_id=4101,
+        raw_text="Second private entry.",
+        entry_date=date(2026, 6, 19),
+    )
+    create_entry(
+        client,
+        telegram_user_id=4102,
+        raw_text="Other user private entry.",
+        entry_date=date(2026, 6, 19),
+    )
+
+    response = client.get(
+        "/journal/export/markdown",
+        headers=auth_headers(4101),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/markdown; charset=utf-8"
+    assert "# Daily Journal Export" in response.text
+    assert "## 2026-06-19" in response.text
+    assert "## 2026-06-18" in response.text
+    assert "First private entry." in response.text
+    assert "Second private entry." in response.text
+    assert "Other user private entry." not in response.text
+
+
+def test_export_markdown_handles_empty_journal(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.get(
+        "/journal/export/markdown",
+        headers=auth_headers(4103),
+    )
+
+    assert response.status_code == 200
+    assert response.text == "# Daily Journal Export\n\nNo journal entries found.\n"
+
+
 def test_update_journal_entry_updates_metadata_without_raw_text(
     db_session: Session,
 ) -> None:
