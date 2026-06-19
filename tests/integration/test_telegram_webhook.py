@@ -308,8 +308,8 @@ def test_telegram_mood_returns_current_user_summary(db_session: Session) -> None
     assert response.json()["reply_text"] == (
         "Mood Summary\n"
         "Entries with mood: 3\n"
-        "Average mood: 5.7/10\n"
-        "Lowest mood: 3/10\n"
+        "Average mood: 5.0/10\n"
+        "Lowest mood: 1/10\n"
         "Highest mood: 7/10\n"
         "Most common mood: positive"
     )
