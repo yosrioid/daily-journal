@@ -18,6 +18,7 @@ Project foundation is being built incrementally. Current scope:
 - Journal storage, today lookup, search, delete latest, and delete by ID
 - Telegram today and delete latest commands
 - Telegram search command
+- Telegram mood summary command
 - Rule-based mood and tag extraction for new journal entries
 - Weekly report generation and retrieval
 - Monthly report generation and retrieval

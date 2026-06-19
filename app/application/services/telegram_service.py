@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import date, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -23,6 +24,7 @@ HELP_REPLY = (
     "/today - Show today's journal entries.\n"
     "/weekly - Generate this week's report.\n"
     "/monthly - Generate this month's report.\n"
+    "/mood - Show your mood summary.\n"
     "/search keyword - Search your journal entries.\n"
     "/delete_last - Delete your latest journal entry."
 )
@@ -132,6 +134,15 @@ class TelegramService:
                 user_id=user.id,
             )
 
+        if text == "/mood":
+            entries = self.journal_service.list_entries_for_user(user.id)
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_mood",
+                reply_text=self._mood_reply(entries),
+                user_id=user.id,
+            )
+
         if text == "/search" or text.startswith("/search "):
             return self._handle_search_command(text, user.id)
 
@@ -204,6 +215,29 @@ class TelegramService:
             lines.append(f"- {self._snippet(entry.raw_text)}")
         if len(entries) > 5:
             lines.append(f"And {len(entries) - 5} more entries.")
+        return "\n".join(lines)
+
+    def _mood_reply(self, entries: list[JournalEntry]) -> str:
+        mood_scores = [
+            entry.mood_score for entry in entries if entry.mood_score is not None
+        ]
+        if not mood_scores:
+            return "No mood data available yet."
+
+        mood_labels = [
+            entry.mood_label for entry in entries if entry.mood_label is not None
+        ]
+        average = round(sum(mood_scores) / len(mood_scores), 1)
+        lines = [
+            "Mood Summary",
+            f"Entries with mood: {len(mood_scores)}",
+            f"Average mood: {average}/10",
+            f"Lowest mood: {min(mood_scores)}/10",
+            f"Highest mood: {max(mood_scores)}/10",
+        ]
+        if mood_labels:
+            common_label = Counter(mood_labels).most_common(1)[0][0]
+            lines.append(f"Most common mood: {common_label}")
         return "\n".join(lines)
 
     def _snippet(self, raw_text: str) -> str:
