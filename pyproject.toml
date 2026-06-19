@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daily-journal"
-version = "0.1.0"
+version = "1.0.0"
 description = "Telegram-based personal journaling backend with weekly and monthly reports."
 readme = "README.md"
 requires-python = ">=3.13"
