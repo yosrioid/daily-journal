@@ -273,6 +273,62 @@ def test_telegram_monthly_generates_report_without_saving_command(
     assert report.report_type == "monthly"
 
 
+def test_telegram_mood_returns_current_user_summary(db_session: Session) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Progress learning Python #Backend."),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("I feel capek and stress."),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("Produktif work session."),
+        headers=headers,
+    )
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update_for_user("Other user happy progress.", 999, "other"),
+        headers=headers,
+    )
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/mood"),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_mood"
+    assert response.json()["reply_text"] == (
+        "Mood Summary\n"
+        "Entries with mood: 3\n"
+        "Average mood: 5.7/10\n"
+        "Lowest mood: 3/10\n"
+        "Highest mood: 7/10\n"
+        "Most common mood: positive"
+    )
+
+
+def test_telegram_mood_handles_empty_data(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/mood"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_mood"
+    assert response.json()["reply_text"] == "No mood data available yet."
+
+
 def test_telegram_search_returns_matching_user_entries(db_session: Session) -> None:
     client = build_client(db_session)
     headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
