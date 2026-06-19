@@ -33,3 +33,7 @@ class UserRepository(ABC):
         last_name: str | None,
     ) -> User:
         raise NotImplementedError
+
+    @abstractmethod
+    def update_timezone(self, user_id: UUID, timezone: str) -> User:
+        raise NotImplementedError

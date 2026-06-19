@@ -20,6 +20,7 @@ Version 1 is ready for personal MVP use. Current scope:
 - Telegram today and delete latest commands
 - Telegram search command
 - Telegram mood summary command
+- Telegram timezone command
 - Rule-based mood and tag extraction for new journal entries
 - Weekly report generation and retrieval
 - Monthly report generation and retrieval

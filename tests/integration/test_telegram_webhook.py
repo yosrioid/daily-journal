@@ -362,6 +362,65 @@ def test_telegram_mood_handles_empty_data(db_session: Session) -> None:
     assert response.json()["reply_text"] == "No mood data available yet."
 
 
+def test_telegram_timezone_updates_user_timezone(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/timezone America/Los_Angeles"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_timezone_updated"
+    assert response.json()["reply_text"] == "Timezone updated to America/Los_Angeles."
+    user = db_session.scalar(
+        select(UserModel).where(UserModel.telegram_user_id == 123456),
+    )
+    assert user is not None
+    assert user.timezone == "America/Los_Angeles"
+
+
+def test_telegram_timezone_rejects_invalid_timezone(db_session: Session) -> None:
+    client = build_client(db_session)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("/timezone Jakarta"),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["action"] == "command_timezone_invalid"
+    assert response.json()["reply_text"] == (
+        "Invalid timezone. Use an IANA timezone like Asia/Jakarta."
+    )
+
+
+def test_telegram_timezone_affects_next_journal_entry_date(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+    client.post(
+        "/telegram/webhook",
+        json=telegram_update("/timezone America/Los_Angeles"),
+        headers=headers,
+    )
+    unix_timestamp = int(datetime(2026, 6, 19, 6, 30, tzinfo=UTC).timestamp())
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("Late night reflection.", unix_timestamp),
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    entry = db_session.scalar(select(JournalEntryModel))
+    assert entry is not None
+    assert entry.entry_date.isoformat() == "2026-06-18"
+
+
 def test_telegram_search_returns_matching_user_entries(db_session: Session) -> None:
     client = build_client(db_session)
     headers = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}

@@ -9,6 +9,7 @@ from app.application.services.mood_service import MoodService
 from app.application.services.report_service import ReportService
 from app.application.services.user_service import UserService
 from app.domain.entities.journal_entry import JournalEntry
+from app.domain.entities.user import User
 from app.shared.exceptions import NotFoundError
 
 START_REPLY = (
@@ -25,6 +26,7 @@ HELP_REPLY = (
     "/weekly - Generate this week's report.\n"
     "/monthly - Generate this month's report.\n"
     "/mood - Show your mood summary.\n"
+    "/timezone Area/City - Show or update your timezone.\n"
     "/search keyword - Search your journal entries.\n"
     "/delete_last - Delete your latest journal entry."
 )
@@ -143,6 +145,9 @@ class TelegramService:
                 user_id=user.id,
             )
 
+        if text == "/timezone" or text.startswith("/timezone "):
+            return self._handle_timezone_command(text, user)
+
         if text == "/search" or text.startswith("/search "):
             return self._handle_search_command(text, user.id)
 
@@ -191,6 +196,42 @@ class TelegramService:
             action="command_search",
             reply_text=self._search_reply(keyword, entries),
             user_id=user_id,
+        )
+
+    def _handle_timezone_command(
+        self,
+        text: str,
+        user: User,
+    ) -> TelegramWebhookResult:
+        timezone = text.removeprefix("/timezone").strip()
+        if not timezone:
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_timezone",
+                reply_text=(
+                    f"Current timezone: {user.timezone}\n"
+                    "Use /timezone Area/City to update it."
+                ),
+                user_id=user.id,
+            )
+
+        try:
+            updated_user = self.user_service.update_timezone(user, timezone)
+        except ValueError:
+            return TelegramWebhookResult(
+                ok=True,
+                action="command_timezone_invalid",
+                reply_text=(
+                    "Invalid timezone. Use an IANA timezone like Asia/Jakarta."
+                ),
+                user_id=user.id,
+            )
+
+        return TelegramWebhookResult(
+            ok=True,
+            action="command_timezone_updated",
+            reply_text=f"Timezone updated to {updated_user.timezone}.",
+            user_id=user.id,
         )
 
     def _search_reply(self, keyword: str, entries: list[JournalEntry]) -> str:
