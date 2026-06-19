@@ -11,8 +11,21 @@ from app.main import create_app
 from app.shared.config import Settings
 
 
-def build_client(db_session: Session) -> TestClient:
+class FakeTelegramBotClient:
+    def __init__(self) -> None:
+        self.sent_messages: list[tuple[int, str]] = []
+
+    def send_message(self, chat_id: int, text: str) -> None:
+        self.sent_messages.append((chat_id, text))
+
+
+def build_client(
+    db_session: Session,
+    telegram_bot_client: FakeTelegramBotClient | None = None,
+) -> TestClient:
     app = create_app(Settings(TELEGRAM_WEBHOOK_SECRET="test-secret"))
+    if telegram_bot_client is not None:
+        app.state.telegram_bot_client = telegram_bot_client
 
     def override_get_session() -> Iterator[Session]:
         yield db_session
@@ -28,6 +41,10 @@ def telegram_update(text: str, unix_timestamp: int = 1781730000) -> dict[str, ob
             "message_id": 10,
             "date": unix_timestamp,
             "text": text,
+            "chat": {
+                "id": 654321,
+                "type": "private",
+            },
             "from": {
                 "id": 123456,
                 "is_bot": False,
@@ -90,6 +107,22 @@ def test_telegram_webhook_saves_text_message(db_session: Session) -> None:
     assert entry.user_id == user.id
     assert entry.raw_text == "Today was productive."
     assert entry.entry_date.isoformat() == "2026-06-18"
+
+
+def test_telegram_webhook_sends_reply_to_telegram_chat(
+    db_session: Session,
+) -> None:
+    telegram_bot_client = FakeTelegramBotClient()
+    client = build_client(db_session, telegram_bot_client)
+
+    response = client.post(
+        "/telegram/webhook",
+        json=telegram_update("Today was productive."),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert telegram_bot_client.sent_messages == [(654321, "Journal saved.")]
 
 
 def test_telegram_webhook_stores_mood_and_tags(db_session: Session) -> None:
@@ -400,7 +433,8 @@ def test_telegram_search_does_not_return_another_users_entries(
 
 
 def test_telegram_webhook_ignores_update_without_message(db_session: Session) -> None:
-    client = build_client(db_session)
+    telegram_bot_client = FakeTelegramBotClient()
+    client = build_client(db_session, telegram_bot_client)
 
     response = client.post(
         "/telegram/webhook",
@@ -415,3 +449,4 @@ def test_telegram_webhook_ignores_update_without_message(db_session: Session) ->
         "reply_text": None,
         "journal_entry_id": None,
     }
+    assert telegram_bot_client.sent_messages == []

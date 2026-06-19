@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Protocol
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,6 +21,11 @@ from app.shared.config import Settings
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 
+class TelegramBotClient(Protocol):
+    def send_message(self, chat_id: int, text: str) -> None:
+        pass
+
+
 class TelegramUserSchema(BaseModel):
     id: int
     is_bot: bool | None = None
@@ -29,10 +34,16 @@ class TelegramUserSchema(BaseModel):
     last_name: str | None = None
 
 
+class TelegramChatSchema(BaseModel):
+    id: int
+    type: str | None = None
+
+
 class TelegramMessageSchema(BaseModel):
     message_id: int
     date: int
     text: str | None = None
+    chat: TelegramChatSchema | None = None
     from_user: TelegramUserSchema = Field(alias="from")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -54,6 +65,10 @@ def get_app_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
+def get_telegram_bot_client(request: Request) -> TelegramBotClient:
+    return request.app.state.telegram_bot_client
+
+
 def build_telegram_service(session: Session) -> TelegramService:
     user_repository = SQLAlchemyUserRepository(session)
     journal_repository = SQLAlchemyJournalRepository(session)
@@ -73,6 +88,10 @@ def telegram_webhook(
     update: TelegramUpdateSchema,
     session: Annotated[Session, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_app_settings)],
+    telegram_bot_client: Annotated[
+        TelegramBotClient,
+        Depends(get_telegram_bot_client),
+    ],
     secret_token: Annotated[
         str | None,
         Header(alias="X-Telegram-Bot-Api-Secret-Token"),
@@ -90,20 +109,26 @@ def telegram_webhook(
     if update.message is None:
         return TelegramWebhookResponse(ok=True, action="ignored")
 
-    result = build_telegram_service(session).handle_message(
-        TelegramMessagePayload(
-            message_id=update.message.message_id,
-            unix_timestamp=update.message.date,
-            text=update.message.text,
-            user=TelegramUserPayload(
-                telegram_user_id=update.message.from_user.id,
-                telegram_username=update.message.from_user.username,
-                first_name=update.message.from_user.first_name,
-                last_name=update.message.from_user.last_name,
-            ),
+    payload = TelegramMessagePayload(
+        message_id=update.message.message_id,
+        unix_timestamp=update.message.date,
+        text=update.message.text,
+        chat_id=(
+            update.message.chat.id
+            if update.message.chat
+            else update.message.from_user.id
+        ),
+        user=TelegramUserPayload(
+            telegram_user_id=update.message.from_user.id,
+            telegram_username=update.message.from_user.username,
+            first_name=update.message.from_user.first_name,
+            last_name=update.message.from_user.last_name,
         ),
     )
+    result = build_telegram_service(session).handle_message(payload)
     session.commit()
+    if payload.chat_id is not None and result.reply_text:
+        telegram_bot_client.send_message(payload.chat_id, result.reply_text)
 
     return TelegramWebhookResponse(
         ok=result.ok,

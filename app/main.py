@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.infrastructure.telegram.bot_api import TelegramBotApiClient
 from app.presentation.api.journal_router import router as journal_router
 from app.presentation.api.report_router import router as report_router
 from app.presentation.telegram.router import router as telegram_router
@@ -18,6 +19,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url="/redoc" if resolved_settings.is_development else None,
     )
     app.state.settings = resolved_settings
+    app.state.telegram_bot_client = TelegramBotApiClient(
+        resolved_settings.telegram_bot_token,
+    )
 
     @app.get("/health")
     def health_check() -> dict[str, str]:
