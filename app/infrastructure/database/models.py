@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -70,6 +71,14 @@ class UserModel(Base):
 
 class JournalEntryModel(Base):
     __tablename__ = "journal_entries"
+    __table_args__ = (
+        Index(
+            "ix_journal_entries_user_entry_date_created_at",
+            "user_id",
+            "entry_date",
+            "created_at",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),

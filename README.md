@@ -55,6 +55,8 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
+Deployment guide: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 Health check:
 
 ```bash
