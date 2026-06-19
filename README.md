@@ -66,7 +66,8 @@ POST /telegram/webhook
 
 The webhook currently validates Telegram updates, resolves or creates the
 Telegram user, stores normal text messages as journal entries, and returns an
-acknowledgement payload. Outbound Telegram replies are not implemented yet.
+acknowledgement payload. When `TELEGRAM_BOT_TOKEN` is configured, webhook
+responses with `reply_text` are also sent back to the Telegram chat.
 
 Journal API:
 

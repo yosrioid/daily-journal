@@ -15,6 +15,7 @@ class TelegramMessagePayload:
     message_id: int
     unix_timestamp: int
     text: str | None
+    chat_id: int | None
     user: TelegramUserPayload
 
 
