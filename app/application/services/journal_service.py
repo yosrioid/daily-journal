@@ -69,6 +69,35 @@ class JournalService:
         self._ensure_user_exists(user_id)
         return self.journal_repository.search_for_user(user_id, keyword.strip())
 
+    def update_entry_for_user(
+        self,
+        entry_id: UUID,
+        user_id: UUID,
+        entry_date: date | None = None,
+        processed_text: str | None = None,
+        summary: str | None = None,
+        mood_score: int | None = None,
+        mood_label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> JournalEntry:
+        self._ensure_user_exists(user_id)
+        if mood_score is not None and not 1 <= mood_score <= 10:
+            raise ValueError("Mood score must be between 1 and 10")
+
+        entry = self.journal_repository.update_for_user(
+            entry_id=entry_id,
+            user_id=user_id,
+            entry_date=entry_date,
+            processed_text=processed_text,
+            summary=summary,
+            mood_score=mood_score,
+            mood_label=mood_label,
+            tags=tags,
+        )
+        if entry is None:
+            raise OwnershipError("Journal entry does not belong to this user")
+        return entry
+
     def delete_entry_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry:
         entry = self.journal_repository.delete_for_user(
             entry_id=entry_id,

@@ -76,6 +76,7 @@ GET /journal?keyword=python
 POST /journal
 GET /journal/today
 GET /journal/{id}
+PUT /journal/{id}
 DELETE /journal/latest
 DELETE /journal/{id}
 ```
@@ -84,6 +85,10 @@ Journal API requests must include `X-Internal-Api-Token` and
 `X-Telegram-User-Id`. The internal token gates these endpoints for trusted
 internal use. The Telegram ID resolves the current user, and all journal queries
 are scoped to that user's internal `user_id`.
+
+Journal updates can change derived metadata such as `processed_text`, `summary`,
+`mood_score`, `mood_label`, `tags`, and `entry_date`. They do not overwrite
+`raw_text`.
 
 New journal entries receive basic rule-based mood and tag analysis. This does
 not use an external AI provider and never modifies `raw_text`.

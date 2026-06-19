@@ -230,6 +230,66 @@ def test_search_journal_entries_rejects_blank_keyword(db_session: Session) -> No
     assert response.status_code == 400
 
 
+def test_update_journal_entry_updates_metadata_without_raw_text(
+    db_session: Session,
+) -> None:
+    client = build_client(db_session)
+    created = create_entry(
+        client,
+        telegram_user_id=4501,
+        raw_text="Original raw text.",
+        entry_date=date(2026, 6, 18),
+    )
+
+    response = client.put(
+        f"/journal/{created['id']}",
+        json={
+            "entry_date": "2026-06-19",
+            "raw_text": "Attempted overwrite.",
+            "processed_text": "Processed text.",
+            "summary": "Short summary.",
+            "mood_score": 8,
+            "mood_label": "positive",
+            "tags": ["work", "learning"],
+        },
+        headers=auth_headers(4501),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["entry_date"] == "2026-06-19"
+    assert payload["raw_text"] == "Original raw text."
+    assert payload["processed_text"] == "Processed text."
+    assert payload["summary"] == "Short summary."
+    assert payload["mood_score"] == 8
+    assert payload["mood_label"] == "positive"
+    assert payload["tags"] == ["work", "learning"]
+
+
+def test_update_journal_entry_requires_ownership(db_session: Session) -> None:
+    client = build_client(db_session)
+    created = create_entry(
+        client,
+        telegram_user_id=4601,
+        raw_text="Private entry.",
+        entry_date=date(2026, 6, 18),
+    )
+
+    response = client.put(
+        f"/journal/{created['id']}",
+        json={"summary": "Blocked summary."},
+        headers=auth_headers(4602),
+    )
+
+    assert response.status_code == 404
+    unchanged_response = client.get(
+        f"/journal/{created['id']}",
+        headers=auth_headers(4601),
+    )
+    assert unchanged_response.status_code == 200
+    assert unchanged_response.json()["summary"] is None
+
+
 def test_delete_journal_entry_requires_ownership(db_session: Session) -> None:
     client = build_client(db_session)
     created = create_entry(

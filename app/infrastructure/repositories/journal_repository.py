@@ -94,6 +94,37 @@ class SQLAlchemyJournalRepository(JournalRepository):
         )
         return [self._to_entity(model) for model in self.session.scalars(statement)]
 
+    def update_for_user(
+        self,
+        entry_id: UUID,
+        user_id: UUID,
+        entry_date: date | None = None,
+        processed_text: str | None = None,
+        summary: str | None = None,
+        mood_score: int | None = None,
+        mood_label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> JournalEntry | None:
+        model = self._get_model_for_user(entry_id=entry_id, user_id=user_id)
+        if model is None:
+            return None
+
+        if entry_date is not None:
+            model.entry_date = entry_date
+        if processed_text is not None:
+            model.processed_text = processed_text
+        if summary is not None:
+            model.summary = summary
+        if mood_score is not None:
+            model.mood_score = mood_score
+        if mood_label is not None:
+            model.mood_label = mood_label
+        if tags is not None:
+            model.tags = tags
+        self.session.flush()
+        self.session.refresh(model)
+        return self._to_entity(model)
+
     def delete_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry | None:
         model = self._get_model_for_user(entry_id=entry_id, user_id=user_id)
         if model is None:

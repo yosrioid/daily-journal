@@ -27,6 +27,15 @@ class CreateJournalEntryRequest(BaseModel):
     entry_date: date | None = None
 
 
+class UpdateJournalEntryRequest(BaseModel):
+    entry_date: date | None = None
+    processed_text: str | None = None
+    summary: str | None = None
+    mood_score: int | None = Field(default=None, ge=1, le=10)
+    mood_label: str | None = None
+    tags: list[str] | None = None
+
+
 class JournalEntryResponse(BaseModel):
     id: UUID
     entry_date: date
@@ -212,6 +221,44 @@ def get_journal_entry(
             detail=str(error),
         ) from error
 
+    return to_journal_entry_response(entry)
+
+
+@router.put(
+    "/{entry_id}",
+    response_model=JournalEntryResponse,
+    dependencies=[Depends(verify_internal_api_token)],
+)
+def update_journal_entry(
+    entry_id: UUID,
+    payload: UpdateJournalEntryRequest,
+    session: Annotated[Session, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    journal_service: Annotated[JournalService, Depends(get_journal_service)],
+) -> JournalEntryResponse:
+    try:
+        entry = journal_service.update_entry_for_user(
+            entry_id=entry_id,
+            user_id=current_user.id,
+            entry_date=payload.entry_date,
+            processed_text=payload.processed_text,
+            summary=payload.summary,
+            mood_score=payload.mood_score,
+            mood_label=payload.mood_label,
+            tags=payload.tags,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from error
+    except OwnershipError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    session.commit()
     return to_journal_entry_response(entry)
 
 
