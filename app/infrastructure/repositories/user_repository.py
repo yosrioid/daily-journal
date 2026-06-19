@@ -62,6 +62,16 @@ class SQLAlchemyUserRepository(UserRepository):
         self.session.refresh(model)
         return self._to_entity(model)
 
+    def update_timezone(self, user_id: UUID, timezone: str) -> User:
+        model = self.session.get(UserModel, user_id)
+        if model is None:
+            raise NotFoundError("User not found")
+
+        model.timezone = timezone
+        self.session.flush()
+        self.session.refresh(model)
+        return self._to_entity(model)
+
     def _to_entity(self, model: UserModel) -> User:
         return User(
             id=model.id,

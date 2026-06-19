@@ -40,3 +40,13 @@ def test_existing_user_profile_is_updated_from_telegram(db_session: Session) -> 
     assert updated.telegram_username == "newname"
     assert updated.first_name == "New"
     assert updated.last_name == "Name"
+
+
+def test_user_timezone_can_be_updated(db_session: Session) -> None:
+    service = UserService(SQLAlchemyUserRepository(db_session))
+    user = service.resolve_telegram_user(telegram_user_id=778)
+
+    updated = service.update_timezone(user, "America/Los_Angeles")
+
+    assert updated.id == user.id
+    assert updated.timezone == "America/Los_Angeles"

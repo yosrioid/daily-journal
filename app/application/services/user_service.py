@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from app.domain.entities.user import User
 from app.domain.interfaces.user_repository import UserRepository
 
@@ -46,3 +48,15 @@ class UserService:
             or user.first_name != first_name
             or user.last_name != last_name
         )
+
+    def update_timezone(self, user: User, timezone: str) -> User:
+        normalized_timezone = timezone.strip()
+        if not normalized_timezone:
+            raise ValueError("Timezone must not be empty")
+
+        try:
+            ZoneInfo(normalized_timezone)
+        except ZoneInfoNotFoundError as error:
+            raise ValueError("Timezone must be a valid IANA timezone") from error
+
+        return self.user_repository.update_timezone(user.id, normalized_timezone)
