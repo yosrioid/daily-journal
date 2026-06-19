@@ -48,6 +48,20 @@ class JournalRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def update_for_user(
+        self,
+        entry_id: UUID,
+        user_id: UUID,
+        entry_date: date | None = None,
+        processed_text: str | None = None,
+        summary: str | None = None,
+        mood_score: int | None = None,
+        mood_label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> JournalEntry | None:
+        raise NotImplementedError
+
+    @abstractmethod
     def delete_for_user(self, entry_id: UUID, user_id: UUID) -> JournalEntry | None:
         raise NotImplementedError
 
